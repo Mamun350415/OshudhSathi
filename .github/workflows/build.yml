@@ -1,0 +1,44 @@
+name: Build Oshudh Sathi APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack project
+        run: |
+          python3 - <<'PYCODE'
+          import zipfile
+          from pathlib import Path
+          src=Path('OshudhSathi-source.zip')
+          if src.exists():
+              with zipfile.ZipFile(src) as z:
+                  for n in z.namelist():
+                      path=Path(n)
+                      if path.is_absolute() or '..' in path.parts:
+                          raise ValueError('Unsafe archive entry')
+                  z.extractall('project')
+          PYCODE
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build and check
+        working-directory: project/OshudhSathi
+        run: gradle :app:assembleDebug :app:lintDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OshudhSathi-test-APK
+          path: project/OshudhSathi/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
